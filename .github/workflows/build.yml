@@ -12,12 +12,10 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
           
-      - name: Make gradlew executable
-        run: chmod +x ./gradlew
+      - uses: gradle/gradle-build-action@v2
+        with:
+          arguments: assembleRelease bundleRelease
           
-      - name: Build APK + AAB
-        run: ./gradlew assembleRelease bundleRelease
-        
       - uses: actions/upload-artifact@v4
         with:
           name: Stars-Release
