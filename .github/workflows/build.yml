@@ -1,4 +1,4 @@
-name: XAS v27 - Real Stars App
+name: XAS v28 - Real Stars App
 
 on:
   push:
@@ -19,34 +19,39 @@ jobs:
 
       - name: Unzip real Stars app
         run: |
-          unzip download.zip
-          echo "=== Unzipped structure ==="
-          ls -R app/
+          # Unzip quietly, overwrite everything, to a temp folder
+          unzip -o -q download.zip -d temp_stars
+          
+          echo "=== Looking for app folder ==="
+          find temp_stars -type d -name "app" 
+          
+          # Move the actual Android app to root
+          mv temp_stars/*/app app/ 2>/dev/null || mv temp_stars/app app/
+          
+          echo "=== Final app structure ==="
+          ls -la app/src/main/java/com/example/stars/
 
       - name: Replace dummy with real source
         run: |
-          # 1. Nuke the dummy MainActivity we used for v1-v24
+          # 1. Nuke the dummy MainActivity
           rm -rf app/src/main/java/com/xas/app/MainActivity.java || true
           
-          # 2. Move real Stars code into project
-          mv download/app/src/main/* app/src/main/
-          
-          # 3. Rename package com.example.stars → com.xas.app
+          # 2. Rename package com.example.stars → com.xas.app
           mv app/src/main/java/com/example/stars app/src/main/java/com/xas/app
           
-          # 4. Find/replace package names in all .kt files
+          # 3. Find/replace package names in all.kt files
           find app/src/main/java/com/xas/app -name "*.kt" -exec sed -i 's/package com.example.stars/package com.xas.app/g' {} +
           
-          # 5. Update AndroidManifest.xml
+          # 4. Update AndroidManifest.xml
           sed -i 's/<manifest/<manifest package="com.xas.app"/' app/src/main/AndroidManifest.xml
           sed -i 's/android:label="Stars"/android:label="XAS"/' app/src/main/AndroidManifest.xml
           sed -i 's/@style\/Theme.Stars/@style\/Theme.XAS/g' app/src/main/AndroidManifest.xml || true
           
-          # 6. Update build.gradle namespace
-          sed -i 's/namespace "com.xas.app"/namespace "com.xas.app"/' app/build.gradle || true
-          sed -i 's/applicationId "com.xas.app"/applicationId "com.xas.app"/' app/build.gradle
+          # 5. Update build.gradle namespace
+          sed -i 's/namespace "com.example.stars"/namespace "com.xas.app"/' app/build.gradle || true
+          sed -i 's/applicationId "com.example.stars"/applicationId "com.xas.app"/' app/build.gradle
           
-          echo "=== Final structure ==="
+          echo "=== Renamed files ==="
           find app/src/main/java/com/xas/app -name "*.kt"
 
       - name: Build XAS with real Stars code
@@ -57,5 +62,5 @@ jobs:
       - name: Upload XAS APK
         uses: actions/upload-artifact@v4
         with:
-          name: XAS-v27-real-app
+          name: XAS-v28-real-app
           path: app/build/outputs/apk/debug/app-debug.apk
