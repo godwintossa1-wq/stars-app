@@ -12,11 +12,13 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
           
-      - uses: gradle/gradle-build-action@v2
+      - uses: gradle/actions/setup-gradle@v3
         with:
-          gradle-version: 8.9
-          arguments: assembleRelease bundleRelease
+          gradle-version: 8.10
           
+      - name: Build APK + AAB
+        run: gradle assembleRelease bundleRelease
+        
       - uses: actions/upload-artifact@v4
         with:
           name: Stars-Release
