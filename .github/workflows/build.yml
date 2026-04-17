@@ -12,7 +12,9 @@ jobs:
       uses: actions/checkout@v4
       
     - name: Unzip project
-      run: unzip -o download.zip
+      run: |
+        unzip -o download.zip
+        ls -la
       
     - name: Set up JDK 17
       uses: actions/setup-java@v4
@@ -23,14 +25,23 @@ jobs:
     - name: Setup Android SDK
       uses: android-actions/setup-android@v3
       
+    - name: Find project directory
+      id: finddir
+      run: |
+        PROJECT_DIR=$(find . -name "gradlew" -type f -exec dirname {} \; | head -1)
+        echo "PROJECT_DIR=$PROJECT_DIR" >> $GITHUB_OUTPUT
+        echo "Found gradlew in: $PROJECT_DIR"
+      
     - name: Grant execute permission
-      run: chmod +x gradlew
+      run: chmod +x ${{ steps.finddir.outputs.PROJECT_DIR }}/gradlew
       
     - name: Build Release AAB
-      run: ./gradlew bundleRelease
+      run: |
+        cd ${{ steps.finddir.outputs.PROJECT_DIR }}
+        ./gradlew bundleRelease
       
     - name: Upload AAB
       uses: actions/upload-artifact@v4
       with:
         name: Stars-Release
-        path: app/build/outputs/bundle/release/app-release.aab
+        path: ${{ steps.finddir.outputs.PROJECT_DIR }}/app/build/outputs/bundle/release/app-release.aab
