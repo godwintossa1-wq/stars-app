@@ -4,6 +4,9 @@ on: workflow_dispatch
 jobs:
   build:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./stars-app
     steps:
       - uses: actions/checkout@v4
       
