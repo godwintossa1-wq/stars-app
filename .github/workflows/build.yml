@@ -16,21 +16,42 @@ jobs:
         with:
           gradle-version: 8.10
           
-      - name: Find project and build APK + AAB
+      - name: Create Gradle files if missing + Build
         run: |
-          PROJECT_DIR=$(find . -name "settings.gradle*" -type f -exec dirname {} \; | head -1)
-          echo "Found Gradle project at: $PROJECT_DIR"
-          cd "$PROJECT_DIR"
+          # If settings.gradle doesn't exist anywhere, make one
+          if ! find . -name "settings.gradle*" -type f | grep -q .; then
+            echo "No settings.gradle found. Creating it..."
+            echo 'rootProject.name = "StarsApp"' > settings.gradle
+            echo 'include ":app"' >> settings.gradle
+          fi
+          
+          # If no root build.gradle, make a basic one
+          if [ ! -f build.gradle ] && [ ! -f build.gradle.kts ]; then
+            echo "Creating root build.gradle..."
+            cat > build.gradle << 'EOF'
+          buildscript {
+              repositories { google(); mavenCentral() }
+              dependencies { classpath 'com.android.tools.build:gradle:8.3.0' }
+          }
+          allprojects {
+              repositories { google(); mavenCentral() }
+          }
+          EOF
+          fi
+          
+          # Find where to build from
+          BUILD_DIR=$(find . -name "settings.gradle*" -type f -exec dirname {} \; | head -1)
+          cd "$BUILD_DIR"
+          echo "Building from: $BUILD_DIR"
+          
+          # Build it
           gradle assembleRelease bundleRelease
           
-      - name: Find and upload APK/AAB
-        run: |
-          PROJECT_DIR=$(find . -name "settings.gradle*" -type f -exec dirname {} \; | head -1)
-          echo "PROJECT_DIR=$PROJECT_DIR" >> $GITHUB_ENV
-          
-      - uses: actions/upload-artifact@v4
+      - name: Upload whatever APK/AAB we made
+        uses: actions/upload-artifact@v4
+        if: always()
         with:
-          name: Stars-Release
+          name: Stars-Release-Final
           path: |
-            ${{ env.PROJECT_DIR }}/app/build/outputs/apk/release/app-release.apk
-            ${{ env.PROJECT_DIR }}/app/build/outputs/bundle/release/app-release.aab
+            **/build/outputs/apk/release/*.apk
+            **/build/outputs/bundle/release/*.aab
