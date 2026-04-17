@@ -1,94 +1,61 @@
-name: Build XAS Release
-on: workflow_dispatch
+name: XAS v27 - Real Stars App
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
 
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-java@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
         with:
-          distribution: 'temurin'
           java-version: '17'
-          
-      - name: Build XAS with Gradle 8.10
+          distribution: 'temurin'
+
+      - name: Unzip real Stars app
         run: |
-          # Kill IDX's old Gradle 8.1 wrapper
-          rm -rf gradle/ gradlew gradlew.bat
+          unzip download.zip
+          echo "=== Unzipped structure ==="
+          ls -R app/
+
+      - name: Replace dummy with real source
+        run: |
+          # 1. Nuke the dummy MainActivity we used for v1-v24
+          rm -rf app/src/main/java/com/xas/app/MainActivity.java || true
           
-          # Create project files with XAS name
-          printf 'rootProject.name = "XAS"\ninclude ":app"\n' > settings.gradle
+          # 2. Move real Stars code into project
+          mv download/app/src/main/* app/src/main/
           
-          cat > build.gradle << 'EOF'
-          buildscript {
-              repositories { google(); mavenCentral() }
-              dependencies { classpath 'com.android.tools.build:gradle:8.3.0' }
-          }
-          allprojects { repositories { google(); mavenCentral() } }
-          EOF
+          # 3. Rename package com.example.stars → com.xas.app
+          mv app/src/main/java/com/example/stars app/src/main/java/com/xas/app
           
-          # App module with XAS package + name
-          mkdir -p app/src/main/java/com/xas/app
-          cat > app/build.gradle << 'EOF'
-          plugins { id 'com.android.application' }
-          android {
-              namespace 'com.xas.app'
-              compileSdk 34
-              defaultConfig {
-                  applicationId "com.xas.app"
-                  minSdk 24
-                  targetSdk 34
-                  versionCode 1
-                  versionName "1.0"
-              }
-              buildTypes {
-                  release {
-                      minifyEnabled false
-                      signingConfig signingConfigs.debug
-                  }
-              }
-          }
-          EOF
+          # 4. Find/replace package names in all .kt files
+          find app/src/main/java/com/xas/app -name "*.kt" -exec sed -i 's/package com.example.stars/package com.xas.app/g' {} +
           
-          cat > app/src/main/AndroidManifest.xml << 'EOF'
-          <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-              <application android:label="XAS">
-                  <activity android:name=".MainActivity" android:exported="true">
-                      <intent-filter>
-                          <action android:name="android.intent.action.MAIN" />
-                          <category android:name="android.intent.category.LAUNCHER" />
-                      </intent-filter>
-                  </activity>
-              </application>
-          </manifest>
-          EOF
+          # 5. Update AndroidManifest.xml
+          sed -i 's/<manifest/<manifest package="com.xas.app"/' app/src/main/AndroidManifest.xml
+          sed -i 's/android:label="Stars"/android:label="XAS"/' app/src/main/AndroidManifest.xml
+          sed -i 's/@style\/Theme.Stars/@style\/Theme.XAS/g' app/src/main/AndroidManifest.xml || true
           
-          cat > app/src/main/java/com/xas/app/MainActivity.java << 'EOF'
-          package com.xas.app;
-          import android.app.Activity;
-          import android.os.Bundle;
-          import android.widget.TextView;
-          public class MainActivity extends Activity {
-              protected void onCreate(Bundle b) { 
-                  super.onCreate(b);
-                  TextView tv = new TextView(this);
-                  tv.setText("XAS - We made it. 3:19am.");
-                  tv.setTextSize(20);
-                  tv.setPadding(40,200,40,40);
-                  setContentView(tv);
-              }
-          }
-          EOF
+          # 6. Update build.gradle namespace
+          sed -i 's/namespace "com.xas.app"/namespace "com.xas.app"/' app/build.gradle || true
+          sed -i 's/applicationId "com.xas.app"/applicationId "com.xas.app"/' app/build.gradle
           
-          # Install Gradle 8.10 to bypass IDX's 8.1 wrapper
-          curl -s "https://get.sdkman.io" | bash
-          source "$HOME/.sdkman/bin/sdkman-init.sh"
-          sdk install gradle 8.10
-          
-          gradle assembleRelease
-          
-      - uses: actions/upload-artifact@v4
-        if: always()
+          echo "=== Final structure ==="
+          find app/src/main/java/com/xas/app -name "*.kt"
+
+      - name: Build XAS with real Stars code
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleDebug --stacktrace
+
+      - name: Upload XAS APK
+        uses: actions/upload-artifact@v4
         with:
-          name: XAS-Final-APK
-          path: app/build/outputs/apk/release/*.apk
+          name: XAS-v27-real-app
+          path: app/build/outputs/apk/debug/app-debug.apk
