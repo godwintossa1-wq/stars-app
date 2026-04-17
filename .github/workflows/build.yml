@@ -14,7 +14,10 @@ jobs:
     - name: Unzip project
       run: |
         unzip -o download.zip
+        echo "=== FILES AFTER UNZIP ==="
         ls -la
+        echo "=== LOOKING FOR GRADLEW ==="
+        find . -name "gradlew" -type f
       
     - name: Set up JDK 17
       uses: actions/setup-java@v4
@@ -25,10 +28,16 @@ jobs:
     - name: Setup Android SDK
       uses: android-actions/setup-android@v3
       
-    - name: Find project directory
+    - name: Set project directory
       id: finddir
       run: |
         PROJECT_DIR=$(find . -name "gradlew" -type f -exec dirname {} \; | head -1)
+        if [ -z "$PROJECT_DIR" ]; then
+          echo "ERROR: gradlew not found anywhere in unzipped files"
+          echo "Contents of current directory:"
+          ls -la
+          exit 1
+        fi
         echo "PROJECT_DIR=$PROJECT_DIR" >> $GITHUB_OUTPUT
         echo "Found gradlew in: $PROJECT_DIR"
       
