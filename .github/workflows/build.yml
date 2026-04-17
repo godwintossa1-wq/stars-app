@@ -13,11 +13,9 @@ jobs:
       
     - name: Unzip project
       run: |
-        unzip -o download.zip
-        echo "=== FILES AFTER UNZIP ==="
+        unzip -o download.zip || echo "No zip or already extracted"
+        echo "=== PROJECT FILES ==="
         ls -la
-        echo "=== LOOKING FOR GRADLEW ==="
-        find . -name "gradlew" -type f
       
     - name: Set up JDK 17
       uses: actions/setup-java@v4
@@ -28,29 +26,20 @@ jobs:
     - name: Setup Android SDK
       uses: android-actions/setup-android@v3
       
-    - name: Set project directory
-      id: finddir
-      run: |
-        PROJECT_DIR=$(find . -name "gradlew" -type f -exec dirname {} \; | head -1)
-        if [ -z "$PROJECT_DIR" ]; then
-          echo "ERROR: gradlew not found anywhere in unzipped files"
-          echo "Contents of current directory:"
-          ls -la
-          exit 1
-        fi
-        echo "PROJECT_DIR=$PROJECT_DIR" >> $GITHUB_OUTPUT
-        echo "Found gradlew in: $PROJECT_DIR"
+    - name: Setup Gradle
+      uses: gradle/gradle-build-action@v3
+      
+    - name: Generate Gradle Wrapper
+      run: gradle wrapper --gradle-version 8.2
       
     - name: Grant execute permission
-      run: chmod +x ${{ steps.finddir.outputs.PROJECT_DIR }}/gradlew
+      run: chmod +x ./gradlew
       
     - name: Build Release AAB
-      run: |
-        cd ${{ steps.finddir.outputs.PROJECT_DIR }}
-        ./gradlew bundleRelease
+      run: ./gradlew bundleRelease
       
     - name: Upload AAB
       uses: actions/upload-artifact@v4
       with:
         name: Stars-Release
-        path: ${{ steps.finddir.outputs.PROJECT_DIR }}/app/build/outputs/bundle/release/app-release.aab
+        path: app/build/outputs/bundle/release/app-release.aab
