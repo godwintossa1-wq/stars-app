@@ -16,8 +16,10 @@ jobs:
           
       - name: Create entire Android project if missing + Build
         run: |
-          # Create root files if missing
-          [ ! -f settings.gradle ] && echo 'rootProject.name = "StarsApp"\ninclude ":app"' > settings.gradle
+          # Create root files - FIXED: use printf for proper newlines
+          if [ ! -f settings.gradle ]; then
+            printf 'rootProject.name = "StarsApp"\ninclude ":app"\n' > settings.gradle
+          fi
           
           if [ ! -f build.gradle ] && [ ! -f build.gradle.kts ]; then
             cat > build.gradle << 'EOF'
@@ -29,10 +31,9 @@ jobs:
           EOF
           fi
           
-          # Create /app module if missing - THIS is why assembleRelease failed
-          mkdir -p app/src/main
+          # Create /app module
+          mkdir -p app/src/main/java/com/stars/app
           if [ ! -f app/build.gradle ]; then
-            echo "Creating app/build.gradle..."
             cat > app/build.gradle << 'EOF'
           plugins { id 'com.android.application' }
           android {
@@ -51,19 +52,12 @@ jobs:
                       signingConfig signingConfigs.debug
                   }
               }
-              sourceSets {
-                  main {
-                      manifest.srcFile 'src/main/AndroidManifest.xml'
-                      java.srcDirs = ['src/main/java']
-                  }
-              }
           }
           EOF
           fi
           
-          # If there's no manifest, make a dummy one so it compiles
+          # Dummy manifest + activity if missing
           if [ ! -f app/src/main/AndroidManifest.xml ]; then
-            mkdir -p app/src/main/java/com/stars/app
             cat > app/src/main/AndroidManifest.xml << 'EOF'
           <manifest xmlns:android="http://schemas.android.com/apk/res/android">
               <application android:label="XPA">
@@ -76,26 +70,33 @@ jobs:
               </application>
           </manifest>
           EOF
-            # Dummy activity so it compiles
             cat > app/src/main/java/com/stars/app/MainActivity.java << 'EOF'
           package com.stars.app;
           import android.app.Activity;
           import android.os.Bundle;
+          import android.widget.TextView;
           public class MainActivity extends Activity {
-              protected void onCreate(Bundle b) { super.onCreate(b); }
+              protected void onCreate(Bundle b) { 
+                  super.onCreate(b);
+                  TextView tv = new TextView(this);
+                  tv.setText("XPA - Finally building at 3am");
+                  setContentView(tv);
+              }
           }
           EOF
           fi
           
-          echo "=== FILES WE HAVE ==="
-          find . -name "*.gradle" -o -name "AndroidManifest.xml" | head -20
+          echo "=== VERIFY FILES ==="
+          cat settings.gradle
+          echo "---"
+          ls -la app/
           
           gradle assembleRelease
           
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: Stars-Release-v24
+          name: Stars-Release-v25
           path: |
             **/build/outputs/apk/release/*.apk
             **/build/outputs/bundle/release/*.aab
